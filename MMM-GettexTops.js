@@ -8,7 +8,7 @@
 Module.register("MMM-GettexTops", {
     defaults: {
         updateInterval: 15 * 60 * 1000, // 15 minutes
-        maxEntries: 10,
+        maxEntries: 5,
         showAktien: true,
         showEtfs: true,
         title: "Gettex Markt-Tops"
