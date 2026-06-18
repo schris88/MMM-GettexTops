@@ -1,0 +1,8 @@
+{
+  "name": "mmm-gettextops",
+  "version": "1.0.0",
+  "description": "MagicMirror module to show TOPS stocks and ETFs from gettex.de",
+  "main": "MMM-GettexTops.js",
+  "author": "Christian Stengel",
+  "license": "MIT"
+}
