@@ -44,7 +44,7 @@
 }
 
 .gettex-table-header {
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 700;
     letter-spacing: 1.5px;
     color: #dfdfdf;
@@ -52,6 +52,7 @@
     padding-bottom: 8px;
     margin-bottom: 12px;
     text-transform: uppercase;
+    text-align: center;
 }
 
 .gettex-table {
@@ -60,7 +61,7 @@
 }
 
 .gettex-table th {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 600;
     text-transform: uppercase;
     color: #888;
@@ -69,8 +70,8 @@
 }
 
 .gettex-table td {
-    font-size: 13px;
-    padding: 8px 4px;
+    font-size: 17px;
+    padding: 4px 4px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     vertical-align: middle;
 }
