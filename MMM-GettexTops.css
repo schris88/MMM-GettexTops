@@ -25,22 +25,9 @@
     margin-left: auto;
 }
 
-/* Glassmorphism style table container card */
+/* Table container style - flat and transparent */
 .gettex-table-container {
     width: 100%;
-    background: rgba(20, 20, 20, 0.5);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    padding: 15px;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
-    transition: transform 0.3s ease, border-color 0.3s ease;
-}
-
-.gettex-table-container:hover {
-    border-color: rgba(255, 255, 255, 0.15);
-    transform: translateY(-2px);
 }
 
 .gettex-table-header {
@@ -48,7 +35,6 @@
     font-weight: 700;
     letter-spacing: 1.5px;
     color: #dfdfdf;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     padding-bottom: 8px;
     margin-bottom: 12px;
     text-transform: uppercase;
@@ -83,12 +69,7 @@
 .gettex-table td {
     font-size: 17px;
     padding: 4px 4px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     vertical-align: middle;
-}
-
-.gettex-table tr:last-child td {
-    border-bottom: none;
 }
 
 .gettex-name {

@@ -96,19 +96,6 @@ Module.register("MMM-GettexTops", {
         const table = document.createElement("table");
         table.className = "gettex-table";
 
-        // Table Header Row
-        const trHead = document.createElement("tr");
-        
-        const thName = document.createElement("th");
-        thName.innerText = "Name";
-        trHead.appendChild(thName);
-
-        const thChange = document.createElement("th");
-        thChange.innerText = "Diff %";
-        thChange.className = "align-right";
-        trHead.appendChild(thChange);
-
-        table.appendChild(trHead);
 
         // Data Rows
         dataList.forEach(item => {
@@ -166,17 +153,6 @@ Module.register("MMM-GettexTops", {
         }
 
         wrapper.appendChild(tablesWrapper);
-
-        // Add small timestamp at the bottom
-        if (this.topsData.timestamp) {
-            const footer = document.createElement("div");
-            footer.className = "gettex-footer xsmall dimmed align-right";
-            
-            const date = new Date(this.topsData.timestamp);
-            const formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            footer.innerText = `Gettex Stand: ${formattedTime}`;
-            wrapper.appendChild(footer);
-        }
 
         return wrapper;
     }
