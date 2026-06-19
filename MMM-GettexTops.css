@@ -58,6 +58,7 @@
 .gettex-table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
 }
 
 .gettex-table th {
@@ -67,6 +68,16 @@
     color: #888;
     padding: 6px 4px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.gettex-table th:first-child,
+.gettex-table td:first-child {
+    width: 75%;
+}
+
+.gettex-table th:last-child,
+.gettex-table td:last-child {
+    width: 25%;
 }
 
 .gettex-table td {
@@ -83,6 +94,9 @@
 .gettex-name {
     font-weight: 500;
     color: #f0f0f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Beautiful neon green for positive diffs */
