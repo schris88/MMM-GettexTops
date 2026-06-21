@@ -54,7 +54,7 @@ Module.register("MMM-GettexTops", {
     },
 
     // Shortens and cleans stock/ETF names to fit beautifully on the mirror screen
-    cleanName: function (name) {
+    cleanName: function (name, isEtf) {
         if (!name) return "";
         let clean = name
             .replace(/UCITS ETF/gi, "ETF")
@@ -70,13 +70,14 @@ Module.register("MMM-GettexTops", {
 
         clean = clean.replace(/\s+/g, " ").trim();
 
-        if (clean.length > 25) {
-            return clean.substring(0, 23) + "...";
+        const limit = isEtf ? 50 : 25;
+        if (clean.length > limit) {
+            return clean.substring(0, limit - 2) + "...";
         }
         return clean;
     },
 
-    createTableElement: function (title, dataList) {
+    createTableElement: function (title, dataList, isEtf) {
         const tableContainer = document.createElement("div");
         tableContainer.className = "gettex-table-container";
 
@@ -104,7 +105,8 @@ Module.register("MMM-GettexTops", {
             // Name cell
             const tdName = document.createElement("td");
             tdName.className = "gettex-name";
-            tdName.innerText = this.cleanName(item.name);
+            if (isEtf) tdName.className += " multiline";
+            tdName.innerText = this.cleanName(item.name, isEtf);
             tr.appendChild(tdName);
 
             // Change cell
@@ -148,7 +150,7 @@ Module.register("MMM-GettexTops", {
 
         // Render ETFs Table
         if (this.config.showEtfs) {
-            const etfsTable = this.createTableElement("ETFS / FONDS TOPS", this.topsData.etfs);
+            const etfsTable = this.createTableElement("ETFS / FONDS TOPS", this.topsData.etfs, true);
             tablesWrapper.appendChild(etfsTable);
         }
 
