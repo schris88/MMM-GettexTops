@@ -4,5 +4,8 @@
   "description": "MagicMirror module to show TOPS stocks and ETFs from gettex.de",
   "main": "MMM-GettexTops.js",
   "author": "Christian Stengel",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.45.0"
+  }
 }
