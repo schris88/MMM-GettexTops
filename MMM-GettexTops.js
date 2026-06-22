@@ -104,9 +104,13 @@ Module.register("MMM-GettexTops", {
             
             // Name cell
             const tdName = document.createElement("td");
-            tdName.className = "gettex-name";
-            if (isEtf) tdName.className += " multiline";
-            tdName.innerText = this.cleanName(item.name, isEtf);
+            const nameWrapper = document.createElement("div");
+            nameWrapper.className = "gettex-name";
+            if (isEtf) {
+                nameWrapper.className += " multiline";
+            }
+            nameWrapper.innerText = this.cleanName(item.name, isEtf);
+            tdName.appendChild(nameWrapper);
             tr.appendChild(tdName);
 
             // Change cell
