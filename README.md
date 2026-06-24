@@ -1,8 +1,8 @@
 # MMM-GettexTops
 
-A modern, clean MagicMirror² module that scrapes and displays the top-performing stocks and ETFs of the day directly from [gettex.de](https://www.gettex.de/).
+A modern, clean MagicMirror² module that displays the top-performing stocks and ETFs of the day directly from [gettex.de](https://www.gettex.de/).
 
-Since Gettex uses dynamic client-side rendering (ag-Grid), this module runs a headless Playwright Chromium instance in the background to scrape the data accurately and reliably.
+This module queries the LSEG widgets API directly, avoiding the need for any headless browser automation, making it highly lightweight and fast.
 
 ---
 
@@ -11,16 +11,12 @@ Since Gettex uses dynamic client-side rendering (ag-Grid), this module runs a he
 1. Navigate to your MagicMirror `modules` directory and clone/copy this directory:
    ```bash
    cd ~/MagicMirror/modules/
-   # (If cloning) git clone https://github.com/christianstengel/MMM-GettexTops.git
+   git clone https://github.com/schris88/MMM-GettexTops.git
    ```
-2. Navigate into the module's folder and install the dependencies (Playwright):
+2. Navigate into the module's folder and run npm install (optional/for consistency):
    ```bash
    cd MMM-GettexTops
    npm install
-   ```
-3. Install the headless Chromium browser binary required by Playwright:
-   ```bash
-   npx playwright install chromium
    ```
 
 ---
@@ -57,7 +53,7 @@ Add the module to your `config/config.js` file:
 
 ## Features
 
-- **Automated Cookie Consent Bypass**: Handles the cookie agreement prompt on the website automatically.
-- **Header-driven Scraper Control**: Ensures only one scrape instance runs at a time to prevent high CPU load on systems like the Raspberry Pi.
+- **Direct API Scraping**: Bypasses browser automation by querying the raw LSEG widgets API directly, resulting in near-instant load times and zero browser overhead.
+- **Lightweight Execution**: Negligible CPU and memory footprint, making it ideal for low-resource environments like the Raspberry Pi.
 - **Smart Text Shortening**: Cleans up long stock/ETF names (e.g. shortening "UCITS ETF" to "ETF", stripping extra details like "USD (Dist)") so they fit beautifully on MagicMirror screens.
 - **Responsive Layout**: Adapts layout automatically and shows positive changes highlighted in green.

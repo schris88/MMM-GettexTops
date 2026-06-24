@@ -4,11 +4,10 @@
  * By Christian Stengel
  * MIT Licensed.
  *
- * Scrapes gettex.de for Top Stocks & ETFs using Playwright Chromium.
+ * Fetches gettex.de Top Stocks & ETFs via direct API endpoints.
  */
 
 const NodeHelper = require("node_helper");
-const { chromium } = require("playwright");
 
 module.exports = NodeHelper.create({
     start: function () {
@@ -26,88 +25,160 @@ module.exports = NodeHelper.create({
     handleDataRequest: async function (config) {
         const self = this;
         
-        // If we have cached data, return it immediately to keep the UI responsive
+        // Return cached data immediately if fresh
         if (this.cache) {
             this.sendSocketNotification("GETTEX_DATA_UPDATED", this.cache);
         }
 
-        // If currently fetching, do not trigger parallel scraper runs to save CPU
         if (this.isFetching) {
             return;
         }
 
         this.isFetching = true;
-        console.log(`[MMM-GettexTops] Starting gettex.de scraping run...`);
-        
-        let browser = null;
+        console.log("[MMM-GettexTops] Fetching gettex.de data via direct API...");
+
         try {
-            browser = await chromium.launch({ headless: true });
-            const page = await browser.newPage();
-            
-            // Navigate to gettex.de homepage
-            await page.goto("https://www.gettex.de/", { waitUntil: "domcontentloaded", timeout: 45000 });
-            
-            // 1. Accept Cookie Consent if visible
-            const cookieButton = page.locator('button:has-text("Akzeptieren"), button:has-text("Einverstanden"), button:has-text("Zustimmen"), [id*="cookie"] button').first();
-            if (await cookieButton.isVisible()) {
-                console.log("[MMM-GettexTops] Clicking cookie consent...");
-                await cookieButton.click();
-                await page.waitForTimeout(1500);
+            // 1. Fetch gettex homepage HTML to extract samlRequest
+            const pageRes = await fetch("https://www.gettex.de/realtime-kurse/aktien/", {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                }
+            });
+            if (!pageRes.ok) {
+                throw new Error(`Failed to load gettex.de: ${pageRes.status}`);
+            }
+            const html = await pageRes.text();
+
+            // Extract samlRequest
+            const match = html.match(/const\s+samlRequest\s*=\s*`([\s\S]*?)`;/);
+            if (!match) {
+                throw new Error("Could not find samlRequest in gettex.de HTML");
+            }
+            const xml = match[1].trim();
+            const base64Saml = Buffer.from(xml).toString("base64");
+
+            // 2. Perform samllogin
+            const params = new URLSearchParams();
+            params.append("SAMLResponse", base64Saml);
+
+            const loginRes = await fetch("https://lseg-widgets.financial.com/auth/api/v1/sessions/samllogin?fetchToken=true", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Accept": "application/json",
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                },
+                body: params.toString()
+            });
+
+            if (!loginRes.ok) {
+                throw new Error(`SAML login failed: ${loginRes.status}`);
+            }
+            const loginData = await loginRes.json();
+            if (!loginData.sid) {
+                throw new Error("No sid returned from samllogin");
             }
 
-            // Wait for grid widgets to load initially
-            await page.waitForTimeout(4000);
+            // 3. Get JWT token
+            const tokenRes = await fetch("https://lseg-widgets.financial.com/auth/api/v1/tokens", {
+                method: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "sid": loginData.sid,
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                }
+            });
+            if (!tokenRes.ok) {
+                throw new Error(`Token fetch failed: ${tokenRes.status}`);
+            }
+            const jwtToken = (await tokenRes.text()).trim();
 
-            // Scraper function evaluated inside browser context
-            const scrapeActiveTab = async (tabName) => {
-                return await page.evaluate((name) => {
-                    const activePane = document.querySelector('.tab-pane.active');
-                    if (!activePane) return null;
-
-                    // Locate the TOPS column (usually col-lg-4) containing <h4>TOPS</h4>
-                    const cols = Array.from(activePane.querySelectorAll('.col-sm-12, .col-md-6, .col-lg-4'));
-                    let topsCol = null;
-                    for (const col of cols) {
-                        const h4 = col.querySelector('h4');
-                        if (h4 && h4.textContent.trim().toUpperCase() === 'TOPS') {
-                            topsCol = col;
-                            break;
+            // 4. Fetch Stocks if enabled
+            let stocks = [];
+            if (config.showAktien !== false) {
+                // Get top 100 by turnover
+                const findUrl = "https://lseg-widgets.financial.com/rest/api/find/securities?fids=x.RIC&exchanges=GTX&secTypes=STO&sortFids=_TURNOVER&sortTypes=N&sortDirs=D&pageSize=100";
+                const findRes = await fetch(findUrl, {
+                    headers: {
+                        "jwt": jwtToken,
+                        "x-cache-id": "V0dfR0VUVEVY",
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    }
+                });
+                if (findRes.ok) {
+                    const findData = await findRes.json();
+                    const rics = findData.data.map(item => item["x.RIC"]).filter(Boolean);
+                    if (rics.length > 0) {
+                        const quoteUrl = `https://lseg-widgets.financial.com/rest/api/quote/info?rics=${rics.join(",")}&fids=x._DSPLY_NAME,q._PCTCHNG,q._TRDPRC_1,q.RIC`;
+                        const quoteRes = await fetch(quoteUrl, {
+                            headers: {
+                                "jwt": jwtToken,
+                                "x-cache-id": "V0dfR0VUVEVY",
+                                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                            }
+                        });
+                        if (quoteRes.ok) {
+                            const quoteData = await quoteRes.json();
+                            stocks = quoteData.data.map(item => {
+                                const pctStr = item["q._PCTCHNG"] || "0";
+                                const pctVal = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
+                                return {
+                                    name: item["x._DSPLY_NAME"] || "",
+                                    changePercent: pctVal,
+                                    changePercentStr: (pctVal >= 0 ? "+" : "") + pctVal.toFixed(2) + "%",
+                                    price: item["q._TRDPRC_1"] || ""
+                                };
+                            });
+                            // Sort descending by percentage change
+                            stocks.sort((a, b) => b.changePercent - a.changePercent);
                         }
                     }
-
-                    if (!topsCol) return null;
-
-                    // Extract all ag-grid rows
-                    const rows = Array.from(topsCol.querySelectorAll('.ag-row'));
-                    return rows.map(row => {
-                        const cells = Array.from(row.querySelectorAll('.ag-cell'));
-                        // Format: [Name, Diff %, Price]
-                        return {
-                            name: cells[0] ? cells[0].textContent.trim() : "",
-                            changePercent: cells[1] ? cells[1].textContent.trim() : "",
-                            price: cells[2] ? cells[2].textContent.trim() : ""
-                        };
-                    }).filter(item => item.name);
-                }, tabName);
-            };
-
-            // 2. Scrape Aktien (selected by default on page load)
-            console.log("[MMM-GettexTops] Scraping AKTIEN TOPS...");
-            const stocks = await scrapeActiveTab("AKTIEN") || [];
-
-            // 3. Click ETFS/FONDS tab and scrape ETFs
-            let etfs = [];
-            const etfTab = page.locator('a:has-text("ETFS/FONDS")').first();
-            if (await etfTab.isVisible()) {
-                console.log("[MMM-GettexTops] Clicking ETFS/FONDS tab...");
-                await etfTab.click();
-                await page.waitForTimeout(3000);
-                etfs = await scrapeActiveTab("ETFS/FONDS") || [];
-            } else {
-                console.warn("[MMM-GettexTops] ETFS/FONDS tab not found/visible.");
+                }
             }
 
-            // Compile results
+            // 5. Fetch ETFs if enabled
+            let etfs = [];
+            if (config.showEtfs !== false) {
+                // Get top 100 ETFs by percent change
+                const findUrl = "https://lseg-widgets.financial.com/rest/api/find/securities?fids=x.RIC&exchanges=GTX&secTypes=FU1&sortFids=_PCTCHNG&sortTypes=N&sortDirs=D&pageSize=100";
+                const findRes = await fetch(findUrl, {
+                    headers: {
+                        "jwt": jwtToken,
+                        "x-cache-id": "V0dfR0VUVEVY",
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    }
+                });
+                if (findRes.ok) {
+                    const findData = await findRes.json();
+                    const rics = findData.data.map(item => item["x.RIC"]).filter(Boolean);
+                    if (rics.length > 0) {
+                        const quoteUrl = `https://lseg-widgets.financial.com/rest/api/quote/info?rics=${rics.join(",")}&fids=x._DSPLY_NAME,q._PCTCHNG,q._TRDPRC_1,q.RIC`;
+                        const quoteRes = await fetch(quoteUrl, {
+                            headers: {
+                                "jwt": jwtToken,
+                                "x-cache-id": "V0dfR0VUVEVY",
+                                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                            }
+                        });
+                        if (quoteRes.ok) {
+                            const quoteData = await quoteRes.json();
+                            etfs = quoteData.data.map(item => {
+                                const pctStr = item["q._PCTCHNG"] || "0";
+                                const pctVal = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
+                                return {
+                                    name: item["x._DSPLY_NAME"] || "",
+                                    changePercent: pctVal,
+                                    changePercentStr: (pctVal >= 0 ? "+" : "") + pctVal.toFixed(2) + "%",
+                                    price: item["q._TRDPRC_1"] || ""
+                                };
+                            });
+                            // Sort descending by percentage change
+                            etfs.sort((a, b) => b.changePercent - a.changePercent);
+                        }
+                    }
+                }
+            }
+
             const result = {
                 stocks: stocks.slice(0, config.maxEntries || 10),
                 etfs: etfs.slice(0, config.maxEntries || 10),
@@ -115,16 +186,12 @@ module.exports = NodeHelper.create({
                 success: true
             };
 
-            console.log(`[MMM-GettexTops] Scrape completed. Found ${result.stocks.length} Stocks and ${result.etfs.length} ETFs.`);
-            
-            // Cache results
+            console.log(`[MMM-GettexTops] Data fetched successfully. Stocks: ${result.stocks.length}, ETFs: ${result.etfs.length}`);
             self.cache = result;
             self.sendSocketNotification("GETTEX_DATA_UPDATED", result);
 
         } catch (error) {
-            console.error("[MMM-GettexTops] Scraping failed:", error);
-            
-            // Fallback: Notify frontend of error (optional use of cached data)
+            console.error("[MMM-GettexTops] Failed to fetch gettex.de data:", error);
             if (self.cache) {
                 console.log("[MMM-GettexTops] Serving cached data due to error.");
                 self.sendSocketNotification("GETTEX_DATA_UPDATED", self.cache);
@@ -138,10 +205,7 @@ module.exports = NodeHelper.create({
                 });
             }
         } finally {
-            if (browser) {
-                await browser.close();
-            }
-            this.isFetching = false;
+            self.isFetching = false;
         }
     }
 });
