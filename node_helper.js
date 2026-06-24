@@ -9,6 +9,11 @@
 
 const NodeHelper = require("node_helper");
 
+function formatChangePercent(val) {
+    const formatted = val.toFixed(1).replace(".", ",");
+    return (val >= 0 ? "+" : "") + formatted + "%";
+}
+
 module.exports = NodeHelper.create({
     start: function () {
         console.log("Starting node helper for: " + this.name);
@@ -96,9 +101,9 @@ module.exports = NodeHelper.create({
             // 4. Fetch Stocks if enabled
             let stocks = [];
             if (config.showAktien !== false) {
-                // Get top 100 by turnover
-                const findUrl = "https://lseg-widgets.financial.com/rest/api/find/securities?fids=x.RIC&exchanges=GTX&secTypes=STO&sortFids=_TURNOVER&sortTypes=N&sortDirs=D&pageSize=100";
-                const findRes = await fetch(findUrl, {
+                // Fetch index constituents representing the market tops shown on the gettex page
+                const constituentsUrl = "https://lseg-widgets.financial.com/rest/api/index/constituents?ric=.GDAXI90,.MDAXI90,.SDAXI90,.TECDAX90,.STOXX50E90,.RUI&fids=x._DSPLY_NAME,q._PCTCHNG,q._TRDPRC_1,q.RIC&exchanges=GTX";
+                const findRes = await fetch(constituentsUrl, {
                     headers: {
                         "jwt": jwtToken,
                         "x-cache-id": "V0dfR0VUVEVY",
@@ -107,32 +112,18 @@ module.exports = NodeHelper.create({
                 });
                 if (findRes.ok) {
                     const findData = await findRes.json();
-                    const rics = findData.data.map(item => item["x.RIC"]).filter(Boolean);
-                    if (rics.length > 0) {
-                        const quoteUrl = `https://lseg-widgets.financial.com/rest/api/quote/info?rics=${rics.join(",")}&fids=x._DSPLY_NAME,q._PCTCHNG,q._TRDPRC_1,q.RIC`;
-                        const quoteRes = await fetch(quoteUrl, {
-                            headers: {
-                                "jwt": jwtToken,
-                                "x-cache-id": "V0dfR0VUVEVY",
-                                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                            }
-                        });
-                        if (quoteRes.ok) {
-                            const quoteData = await quoteRes.json();
-                            stocks = quoteData.data.map(item => {
-                                const pctStr = item["q._PCTCHNG"] || "0";
-                                const pctVal = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
-                                return {
-                                    name: item["x._DSPLY_NAME"] || "",
-                                    changePercent: pctVal,
-                                    changePercentStr: (pctVal >= 0 ? "+" : "") + pctVal.toFixed(2) + "%",
-                                    price: item["q._TRDPRC_1"] || ""
-                                };
-                            });
-                            // Sort descending by percentage change
-                            stocks.sort((a, b) => b.changePercent - a.changePercent);
-                        }
-                    }
+                    stocks = findData.data.map(item => {
+                        const pctStr = item["q._PCTCHNG"] || "0";
+                        const pctVal = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
+                        return {
+                            name: item["x._DSPLY_NAME"] || "",
+                            changePercentVal: pctVal,
+                            changePercent: formatChangePercent(pctVal),
+                            price: item["q._TRDPRC_1"] || ""
+                        };
+                    });
+                    // Sort descending by percentage change value
+                    stocks.sort((a, b) => b.changePercentVal - a.changePercentVal);
                 }
             }
 
@@ -167,13 +158,13 @@ module.exports = NodeHelper.create({
                                 const pctVal = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
                                 return {
                                     name: item["x._DSPLY_NAME"] || "",
-                                    changePercent: pctVal,
-                                    changePercentStr: (pctVal >= 0 ? "+" : "") + pctVal.toFixed(2) + "%",
+                                    changePercentVal: pctVal,
+                                    changePercent: formatChangePercent(pctVal),
                                     price: item["q._TRDPRC_1"] || ""
                                 };
                             });
-                            // Sort descending by percentage change
-                            etfs.sort((a, b) => b.changePercent - a.changePercent);
+                            // Sort descending by percentage change value
+                            etfs.sort((a, b) => b.changePercentVal - a.changePercentVal);
                         }
                     }
                 }
