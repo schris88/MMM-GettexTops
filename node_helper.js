@@ -102,7 +102,7 @@ module.exports = NodeHelper.create({
             let stocks = [];
             if (config.showAktien !== false) {
                 // Fetch index constituents representing the market tops shown on the gettex page
-                const constituentsUrl = "https://lseg-widgets.financial.com/rest/api/index/constituents?ric=.GDAXI90,.MDAXI90,.SDAXI90,.TECDAX90,.STOXX50E90,.RUI&fids=x._DSPLY_NAME,q._PCTCHNG,q._TRDPRC_1,q.RIC&exchanges=GTX";
+                const constituentsUrl = "https://lseg-widgets.financial.com/rest/api/index/constituents?ric=.GDAXI90,.MDAXI90,.SDAXI90,.TECDAX90,.STOXX50E90,.RUI&fids=x._DSPLY_NAME,q._PCTCHNG,q._TRDPRC_1,q.RIC,q.ASK,q.HST_CLOSE&exchanges=GTX";
                 const findRes = await fetch(constituentsUrl, {
                     headers: {
                         "jwt": jwtToken,
@@ -113,13 +113,28 @@ module.exports = NodeHelper.create({
                 if (findRes.ok) {
                     const findData = await findRes.json();
                     stocks = findData.data.map(item => {
+                        const askStr = item["q.ASK"] || "";
+                        const closeStr = item["q.HST_CLOSE"] || "";
+                        const lastStr = item["q._TRDPRC_1"] || "";
                         const pctStr = item["q._PCTCHNG"] || "0";
-                        const pctVal = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
+
+                        const ask = parseFloat(askStr.replace(/[+]/g, "").trim()) || 0;
+                        const close = parseFloat(closeStr.replace(/[+]/g, "").trim()) || 0;
+                        const fallbackPct = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
+
+                        let pctVal = fallbackPct;
+                        let priceVal = lastStr;
+
+                        if (close > 0 && ask > 0) {
+                            pctVal = ((ask - close) / close) * 100;
+                            priceVal = askStr;
+                        }
+
                         return {
                             name: item["x._DSPLY_NAME"] || "",
                             changePercentVal: pctVal,
                             changePercent: formatChangePercent(pctVal),
-                            price: item["q._TRDPRC_1"] || ""
+                            price: priceVal
                         };
                     });
                     // Sort descending by percentage change value
@@ -143,7 +158,7 @@ module.exports = NodeHelper.create({
                     const findData = await findRes.json();
                     const rics = findData.data.map(item => item["x.RIC"]).filter(Boolean);
                     if (rics.length > 0) {
-                        const quoteUrl = `https://lseg-widgets.financial.com/rest/api/quote/info?rics=${rics.join(",")}&fids=x._DSPLY_NAME,q._PCTCHNG,q._TRDPRC_1,q.RIC`;
+                        const quoteUrl = `https://lseg-widgets.financial.com/rest/api/quote/info?rics=${rics.join(",")}&fids=x._DSPLY_NAME,q._PCTCHNG,q._TRDPRC_1,q.RIC,q.ASK,q.HST_CLOSE`;
                         const quoteRes = await fetch(quoteUrl, {
                             headers: {
                                 "jwt": jwtToken,
@@ -154,13 +169,28 @@ module.exports = NodeHelper.create({
                         if (quoteRes.ok) {
                             const quoteData = await quoteRes.json();
                             etfs = quoteData.data.map(item => {
+                                const askStr = item["q.ASK"] || "";
+                                const closeStr = item["q.HST_CLOSE"] || "";
+                                const lastStr = item["q._TRDPRC_1"] || "";
                                 const pctStr = item["q._PCTCHNG"] || "0";
-                                const pctVal = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
+
+                                const ask = parseFloat(askStr.replace(/[+]/g, "").trim()) || 0;
+                                const close = parseFloat(closeStr.replace(/[+]/g, "").trim()) || 0;
+                                const fallbackPct = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
+
+                                let pctVal = fallbackPct;
+                                let priceVal = lastStr;
+
+                                if (close > 0 && ask > 0) {
+                                    pctVal = ((ask - close) / close) * 100;
+                                    priceVal = askStr;
+                                }
+
                                 return {
                                     name: item["x._DSPLY_NAME"] || "",
                                     changePercentVal: pctVal,
                                     changePercent: formatChangePercent(pctVal),
-                                    price: item["q._TRDPRC_1"] || ""
+                                    price: priceVal
                                 };
                             });
                             // Sort descending by percentage change value
