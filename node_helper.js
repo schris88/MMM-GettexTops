@@ -10,7 +10,7 @@
 const NodeHelper = require("node_helper");
 
 function formatChangePercent(val) {
-    const formatted = val.toFixed(1).replace(".", ",");
+    const formatted = val.toFixed(2).replace(".", ",");
     return (val >= 0 ? "+" : "") + formatted + "%";
 }
 
@@ -113,28 +113,15 @@ module.exports = NodeHelper.create({
                 if (findRes.ok) {
                     const findData = await findRes.json();
                     stocks = findData.data.map(item => {
-                        const askStr = item["q.ASK"] || "";
-                        const closeStr = item["q.HST_CLOSE"] || "";
                         const lastStr = item["q._TRDPRC_1"] || "";
                         const pctStr = item["q._PCTCHNG"] || "0";
-
-                        const ask = parseFloat(askStr.replace(/[+]/g, "").trim()) || 0;
-                        const close = parseFloat(closeStr.replace(/[+]/g, "").trim()) || 0;
-                        const fallbackPct = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
-
-                        let pctVal = fallbackPct;
-                        let priceVal = lastStr;
-
-                        if (close > 0 && ask > 0) {
-                            pctVal = ((ask - close) / close) * 100;
-                            priceVal = askStr;
-                        }
+                        const pctVal = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
 
                         return {
                             name: item["x._DSPLY_NAME"] || "",
                             changePercentVal: pctVal,
                             changePercent: formatChangePercent(pctVal),
-                            price: priceVal
+                            price: lastStr
                         };
                     });
                     // Sort descending by percentage change value
@@ -169,28 +156,15 @@ module.exports = NodeHelper.create({
                         if (quoteRes.ok) {
                             const quoteData = await quoteRes.json();
                             etfs = quoteData.data.map(item => {
-                                const askStr = item["q.ASK"] || "";
-                                const closeStr = item["q.HST_CLOSE"] || "";
                                 const lastStr = item["q._TRDPRC_1"] || "";
                                 const pctStr = item["q._PCTCHNG"] || "0";
-
-                                const ask = parseFloat(askStr.replace(/[+]/g, "").trim()) || 0;
-                                const close = parseFloat(closeStr.replace(/[+]/g, "").trim()) || 0;
-                                const fallbackPct = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
-
-                                let pctVal = fallbackPct;
-                                let priceVal = lastStr;
-
-                                if (close > 0 && ask > 0) {
-                                    pctVal = ((ask - close) / close) * 100;
-                                    priceVal = askStr;
-                                }
+                                const pctVal = parseFloat(pctStr.replace(/[+%]/g, "").trim()) || 0;
 
                                 return {
                                     name: item["x._DSPLY_NAME"] || "",
                                     changePercentVal: pctVal,
                                     changePercent: formatChangePercent(pctVal),
-                                    price: priceVal
+                                    price: lastStr
                                 };
                             });
                             // Sort descending by percentage change value
