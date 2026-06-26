@@ -208,12 +208,13 @@ module.exports = NodeHelper.create({
 							}
 							etfs = uniqueEtfs;
 
-							// Filter out leveraged ETFs if their 1x version is already in the list
-							const LEVERAGE_REGEX = /\b(?:[2-9](\.\d+)?x|[1-9]\d+(\.\d+)?x|x[2-9]|x[1-9]\d+|\(-[2-9]x\)|\(-[1-9]\d+x\)|leveraged?|leverage|hebel|double|triple)\b/i;
-							const isLeveraged = (name) => LEVERAGE_REGEX.test(name);
+							// Filter out leveraged/short ETFs if their 1x/long version is already in the list
+							const LEVERAGE_OR_SHORT_REGEX = /\b(?:[2-9](\.\d+)?x|[1-9]\d+(\.\d+)?x|x[2-9]|x[1-9]\d+|\(-[2-9]x\)|\(-[1-9]\d+x\)|leveraged?|leverage|hebel|double|triple|inverse|inv)\b|short/i;
+							const isLeveragedOrShort = (name) => LEVERAGE_OR_SHORT_REGEX.test(name);
 							const getCleanBaseName = (name) => {
 								return name
-									.replace(/\b(?:[2-9](\.\d+)?x|[1-9]\d+(\.\d+)?x|x[2-9]|x[1-9]\d+|\(-[2-9]x\)|\(-[1-9]\d+x\)|leveraged?|leverage|hebel|double|triple|daily|short)\b/gi, "")
+									.replace(/short/gi, "")
+									.replace(/\b(?:[2-9](\.\d+)?x|[1-9]\d+(\.\d+)?x|x[2-9]|x[1-9]\d+|\(-[2-9]x\)|\(-[1-9]\d+x\)|leveraged?|leverage|hebel|double|triple|daily|inverse|inv)\b/gi, "")
 									.replace(/\b(?:ucits|etf|etc|usd|eur|acc|dist|swap|dly)\b/gi, "")
 									.replace(/[\(\)\-\+]/g, " ")
 									.replace(/\s+/g, " ")
@@ -221,17 +222,17 @@ module.exports = NodeHelper.create({
 									.toLowerCase();
 							};
 
-							const nonLeveragedEtfs = etfs.filter((e) => !isLeveraged(e.name));
+							const baseEtfs = etfs.filter((e) => !isLeveragedOrShort(e.name));
 							etfs = etfs.filter((etf) => {
-								if (!isLeveraged(etf.name)) {
+								if (!isLeveragedOrShort(etf.name)) {
 									return true;
 								}
 								const baseName = getCleanBaseName(etf.name);
-								const has1x = nonLeveragedEtfs.some((n) => {
+								const hasBase = baseEtfs.some((n) => {
 									const nBase = getCleanBaseName(n.name);
 									return baseName.includes(nBase) || nBase.includes(baseName);
 								});
-								return !has1x;
+								return !hasBase;
 							});
 						}
 					}
