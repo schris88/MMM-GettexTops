@@ -9,6 +9,7 @@ Module.register("MMM-GettexTops", {
     defaults: {
         updateInterval: 15 * 60 * 1000, // 15 minutes
         maxEntries: 5,
+        maxEntriesEtf: null,
         showAktien: true,
         showEtfs: true,
         title: "Gettex Markt-Tops"
@@ -32,7 +33,8 @@ Module.register("MMM-GettexTops", {
 
     getData: function () {
         this.sendSocketNotification("GET_GETTEX_DATA", {
-            maxEntries: this.config.maxEntries
+            maxEntries: this.config.maxEntries,
+            maxEntriesEtf: this.config.maxEntriesEtf || this.config.maxEntries
         });
     },
 

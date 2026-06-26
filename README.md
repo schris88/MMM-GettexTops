@@ -27,6 +27,7 @@ This module queries the LSEG widgets API directly, avoiding the need for any hea
 | --- | --- | --- | --- |
 | `updateInterval` | `Number` | `900000` (15m) | How often to scrape gettex.de and update data (in milliseconds). |
 | `maxEntries` | `Number` | `5` | Maximum number of top stocks/ETFs to display in each table. |
+| `maxEntriesEtf` | `Number` | `null` (falls back to `maxEntries`) | Maximum number of top ETFs to display. If not specified, falls back to `maxEntries`. |
 | `showAktien` | `Boolean` | `true` | Show the "AKTIEN TOPS" (Top Stocks) table. |
 | `showEtfs` | `Boolean` | `true` | Show the "ETFS / FONDS TOPS" (Top ETFs/Funds) table. |
 
@@ -43,9 +44,10 @@ Add the module to your `config/config.js` file:
     config: {
         updateInterval: 15 * 60 * 1000, // Update every 15 minutes
         maxEntries: 5,
+        maxEntriesEtf: 8,
         showAktien: true,
         showEtfs: true
-    }
+      }
 }
 ```
 

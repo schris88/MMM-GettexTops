@@ -207,6 +207,32 @@ module.exports = NodeHelper.create({
 								uniqueEtfs.push(etf);
 							}
 							etfs = uniqueEtfs;
+
+							// Filter out leveraged ETFs if their 1x version is already in the list
+							const LEVERAGE_REGEX = /\b(?:[2-9](\.\d+)?x|[1-9]\d+(\.\d+)?x|x[2-9]|x[1-9]\d+|\(-[2-9]x\)|\(-[1-9]\d+x\)|leveraged?|leverage|hebel|double|triple)\b/i;
+							const isLeveraged = (name) => LEVERAGE_REGEX.test(name);
+							const getCleanBaseName = (name) => {
+								return name
+									.replace(/\b(?:[2-9](\.\d+)?x|[1-9]\d+(\.\d+)?x|x[2-9]|x[1-9]\d+|\(-[2-9]x\)|\(-[1-9]\d+x\)|leveraged?|leverage|hebel|double|triple|daily|short)\b/gi, "")
+									.replace(/\b(?:ucits|etf|etc|usd|eur|acc|dist|swap|dly)\b/gi, "")
+									.replace(/[\(\)\-\+]/g, " ")
+									.replace(/\s+/g, " ")
+									.trim()
+									.toLowerCase();
+							};
+
+							const nonLeveragedEtfs = etfs.filter((e) => !isLeveraged(e.name));
+							etfs = etfs.filter((etf) => {
+								if (!isLeveraged(etf.name)) {
+									return true;
+								}
+								const baseName = getCleanBaseName(etf.name);
+								const has1x = nonLeveragedEtfs.some((n) => {
+									const nBase = getCleanBaseName(n.name);
+									return baseName.includes(nBase) || nBase.includes(baseName);
+								});
+								return !has1x;
+							});
 						}
 					}
 				}
@@ -214,7 +240,7 @@ module.exports = NodeHelper.create({
 
 			const result = {
 				stocks: stocks.slice(0, config.maxEntries || 10),
-				etfs: etfs.slice(0, config.maxEntries || 10),
+				etfs: etfs.slice(0, config.maxEntriesEtf || config.maxEntries || 10),
 				timestamp: new Date().toISOString(),
 				success: true
 			};
