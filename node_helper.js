@@ -211,15 +211,77 @@ module.exports = NodeHelper.create({
 					}
 				}
 			}
+			// 6. Fetch CNN Fear & Greed Index if enabled
+			let fgi = null;
+			if (config.showFgi !== false) {
+				try {
+					const fgiRes = await fetch("https://production.dataviz.cnn.io/index/fearandgreed/graphdata", {
+						headers: {
+							"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+							"Referer": "https://www.cnn.com/",
+							"Accept": "application/json"
+						}
+					});
+					if (fgiRes.ok) {
+						const fgiData = await fgiRes.json();
+						if (fgiData && fgiData.fear_and_greed) {
+							fgi = {
+								score: fgiData.fear_and_greed.score,
+								rating: fgiData.fear_and_greed.rating
+							};
+						}
+					} else {
+						console.error(`[MMM-GettexTops] CNN FGI fetch failed: ${fgiRes.status}`);
+					}
+				} catch (fgiError) {
+					console.error("[MMM-GettexTops] Error fetching CNN FGI:", fgiError.message);
+				}
+			}
+
+			// 7. Fetch VIX Index from Yahoo Finance if enabled
+			let vix = null;
+			if (config.showVix !== false) {
+				const vixUrl = "https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?range=2d&interval=1d";
+				try {
+					const vixRes = await fetch(vixUrl, {
+						headers: {
+							"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+						}
+					});
+					if (vixRes.ok) {
+						const vixData = await vixRes.json();
+						if (vixData.chart && vixData.chart.result && vixData.chart.result.length > 0) {
+							const resultMeta = vixData.chart.result[0].meta;
+							const price = resultMeta.regularMarketPrice;
+							const previousClose = resultMeta.chartPreviousClose !== undefined ? resultMeta.chartPreviousClose : price;
+							const change = price - previousClose;
+							const changePercentVal = previousClose !== 0 ? (change / previousClose) * 100 : 0;
+
+							vix = {
+								price: price,
+								change: change,
+								changePercentVal: changePercentVal,
+								changePercent: formatChangePercent(changePercentVal)
+							};
+						}
+					} else {
+						console.error(`[MMM-GettexTops] VIX fetch failed: ${vixRes.status}`);
+					}
+				} catch (vixError) {
+					console.error("[MMM-GettexTops] Error fetching VIX:", vixError.message);
+				}
+			}
 
 			const result = {
 				stocks: stocks.slice(0, config.maxEntries || 10),
 				etfs: etfs.slice(0, config.maxEntries || 10),
+				fgi: fgi,
+				vix: vix,
 				timestamp: new Date().toISOString(),
 				success: true
 			};
 
-			console.log(`[MMM-GettexTops] Data fetched successfully. Stocks: ${result.stocks.length}, ETFs: ${result.etfs.length}`);
+			console.log(`[MMM-GettexTops] Data fetched successfully. Stocks: ${result.stocks.length}, ETFs: ${result.etfs.length}${result.fgi ? ", FGI: " + Math.round(result.fgi.score) : ""}${result.vix ? ", VIX: " + result.vix.price : ""}`);
 			self.cache = result;
 			self.sendSocketNotification("GETTEX_DATA_UPDATED", result);
 
@@ -232,6 +294,8 @@ module.exports = NodeHelper.create({
 				self.sendSocketNotification("GETTEX_DATA_UPDATED", {
 					stocks: [],
 					etfs: [],
+					fgi: null,
+					vix: null,
 					timestamp: new Date().toISOString(),
 					success: false,
 					error: error.message

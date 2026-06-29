@@ -143,6 +143,20 @@
     }
 }
 
+
+.gettex-sentiment-container {
+    width: 100%;
+}
+
+.gettex-sentiment-container td:first-child {
+    width: 50%;
+}
+
+.gettex-sentiment-container td:last-child {
+    width: 50%;
+    white-space: nowrap;
+}
+
 /* Responsive adjustment for small/vertical layouts */
 @media (max-width: 700px) {
     .gettex-tables-wrapper {

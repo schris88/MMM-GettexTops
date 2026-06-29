@@ -11,6 +11,8 @@ Module.register("MMM-GettexTops", {
         maxEntries: 5,
         showAktien: true,
         showEtfs: true,
+        showFgi: true,
+        showVix: true,
         title: "Gettex Markt-Tops"
     },
 
@@ -31,9 +33,7 @@ Module.register("MMM-GettexTops", {
     },
 
     getData: function () {
-        this.sendSocketNotification("GET_GETTEX_DATA", {
-            maxEntries: this.config.maxEntries
-        });
+        this.sendSocketNotification("GET_GETTEX_DATA", this.config);
     },
 
     socketNotificationReceived: function (notification, payload) {
@@ -126,6 +126,96 @@ Module.register("MMM-GettexTops", {
         return tableContainer;
     },
 
+    translateRating: function (rating) {
+        if (!rating) return "";
+        const lower = rating.toLowerCase();
+        const isGerman = (this.config.language || config.language) === "de";
+
+        if (isGerman) {
+            if (lower.includes("extreme fear")) return "Extreme Angst";
+            if (lower.includes("fear")) return "Angst";
+            if (lower.includes("neutral")) return "Neutral";
+            if (lower.includes("extreme greed")) return "Extreme Gier";
+            if (lower.includes("greed")) return "Gier";
+        } else {
+            if (lower.includes("extreme fear")) return "Extreme Fear";
+            if (lower.includes("fear")) return "Fear";
+            if (lower.includes("neutral")) return "Neutral";
+            if (lower.includes("extreme greed")) return "Extreme Greed";
+            if (lower.includes("greed")) return "Greed";
+        }
+        return rating;
+    },
+
+    createSentimentElement: function (fgiData, vixData) {
+        const sentimentContainer = document.createElement("div");
+        sentimentContainer.className = "gettex-sentiment-container";
+
+        const header = document.createElement("div");
+        header.className = "gettex-table-header";
+        header.innerText = "MARKTSENTIMENT";
+        sentimentContainer.appendChild(header);
+
+        const table = document.createElement("table");
+        table.className = "gettex-table";
+
+        // 1. Render FGI Row if enabled
+        if (this.config.showFgi && fgiData) {
+            const tr = document.createElement("tr");
+
+            const tdLabel = document.createElement("td");
+            tdLabel.className = "gettex-name";
+            tdLabel.innerText = "Fear & Greed Index";
+            tr.appendChild(tdLabel);
+
+            const tdValue = document.createElement("td");
+            tdValue.className = "gettex-change align-right";
+
+            const score = Math.round(fgiData.score);
+            const rating = this.translateRating(fgiData.rating);
+            tdValue.innerText = `${score} (${rating})`;
+
+            // Color-code based on score / rating
+            const lowerRating = fgiData.rating.toLowerCase();
+            if (lowerRating.includes("greed")) {
+                tdValue.className += " pos"; // Greed = green
+            } else if (lowerRating.includes("fear")) {
+                tdValue.className += " neg"; // Fear = red
+            }
+            tr.appendChild(tdValue);
+            table.appendChild(tr);
+        }
+
+        // 2. Render VIX Row if enabled
+        if (this.config.showVix && vixData) {
+            const tr = document.createElement("tr");
+
+            const tdLabel = document.createElement("td");
+            tdLabel.className = "gettex-name";
+            tdLabel.innerText = "VIX Index (^VIX)";
+            tr.appendChild(tdLabel);
+
+            const tdValue = document.createElement("td");
+            tdValue.className = "gettex-change align-right";
+
+            const formattedPrice = vixData.price.toFixed(2).replace(".", ",");
+            tdValue.innerText = `${formattedPrice}  ${vixData.changePercent}`;
+
+            // Falling VIX (negative change) = Calm market (Green)
+            // Rising VIX (positive change) = High fear (Red)
+            if (vixData.changePercentVal > 0) {
+                tdValue.className += " neg";
+            } else if (vixData.changePercentVal < 0) {
+                tdValue.className += " pos";
+            }
+            tr.appendChild(tdValue);
+            table.appendChild(tr);
+        }
+
+        sentimentContainer.appendChild(table);
+        return sentimentContainer;
+    },
+
     getDom: function () {
         const wrapper = document.createElement("div");
         wrapper.className = "gettex-container";
@@ -145,6 +235,12 @@ Module.register("MMM-GettexTops", {
         // Main Layout Container
         const tablesWrapper = document.createElement("div");
         tablesWrapper.className = "gettex-tables-wrapper";
+
+        // Render Sentiment Section
+        if ((this.config.showFgi && this.topsData && this.topsData.fgi) || (this.config.showVix && this.topsData && this.topsData.vix)) {
+            const sentimentElement = this.createSentimentElement(this.topsData.fgi, this.topsData.vix);
+            tablesWrapper.appendChild(sentimentElement);
+        }
 
         // Render Stocks Table
         if (this.config.showAktien) {
