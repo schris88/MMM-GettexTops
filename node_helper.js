@@ -207,6 +207,33 @@ module.exports = NodeHelper.create({
 								uniqueEtfs.push(etf);
 							}
 							etfs = uniqueEtfs;
+
+							// Filter out leveraged/short ETFs if their 1x/long version is already in the list
+							const LEVERAGE_OR_SHORT_REGEX = /\b(?:[2-9](\.\d+)?x|[1-9]\d+(\.\d+)?x|x[2-9]|x[1-9]\d+|\(-[2-9]x\)|\(-[1-9]\d+x\)|leveraged?|leverage|hebel|double|triple|inverse|inv)\b|short/i;
+							const isLeveragedOrShort = (name) => LEVERAGE_OR_SHORT_REGEX.test(name);
+							const getCleanBaseName = (name) => {
+								return name
+									.replace(/short/gi, "")
+									.replace(/\b(?:[2-9](\.\d+)?x|[1-9]\d+(\.\d+)?x|x[2-9]|x[1-9]\d+|\(-[2-9]x\)|\(-[1-9]\d+x\)|leveraged?|leverage|hebel|double|triple|daily|inverse|inv)\b/gi, "")
+									.replace(/\b(?:ucits|etf|etc|usd|eur|acc|dist|swap|dly)\b/gi, "")
+									.replace(/[\(\)\-\+]/g, " ")
+									.replace(/\s+/g, " ")
+									.trim()
+									.toLowerCase();
+							};
+
+							const baseEtfs = etfs.filter((e) => !isLeveragedOrShort(e.name));
+							etfs = etfs.filter((etf) => {
+								if (!isLeveragedOrShort(etf.name)) {
+									return true;
+								}
+								const baseName = getCleanBaseName(etf.name);
+								const hasBase = baseEtfs.some((n) => {
+									const nBase = getCleanBaseName(n.name);
+									return baseName.includes(nBase) || nBase.includes(baseName);
+								});
+								return !hasBase;
+							});
 						}
 					}
 				}
