@@ -301,7 +301,7 @@ module.exports = NodeHelper.create({
 
 			const result = {
 				stocks: stocks.slice(0, config.maxEntries || 10),
-				etfs: etfs.slice(0, config.maxEntries || 10),
+				etfs: etfs.slice(0, config.maxEntriesEtf || config.maxEntries || 10),
 				fgi: fgi,
 				vix: vix,
 				timestamp: new Date().toISOString(),

@@ -34,10 +34,7 @@ Module.register("MMM-GettexTops", {
     },
 
     getData: function () {
-        tis.sendSocketNotification("GET_GETTEX_DATA", {
-            maxEntries: this.config.maxEntries,
-            maxEntriesEtf: this.config.maxEntriesEtf || this.config.maxEntries
-        });
+        this.sendSocketNotification("GET_GETTEX_DATA", this.config);
     },
 
     socketNotificationReceived: function (notification, payload) {
